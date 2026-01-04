@@ -1,74 +1,171 @@
-Short Project Overview
-- End-to-end RAG stack: FastAPI backend for PDF ingestion, chunking, FAISS indexing, and retrieval-augmented QA with Ollama models; Streamlit UI for uploading, ingesting, and chatting over indexed content; CLI helper for headless ingestion.
+# Multi-Modal Local RAG
 
-Features
-- PDF ingestion with chunking, table/image handling, and vector indexing (FAISS).
-- Chat endpoint that retrieves top-k chunks and answers via Ollama LLM.
-- Health check endpoint for readiness info.
-- Streamlit UI for upload + QA and a CLI helper to ingest without running the server.
+## Overview
+End-to-end RAG (Retrieval-Augmented Generation) system with FastAPI backend for PDF ingestion, chunking, FAISS vector indexing, and retrieval-augmented QA using Ollama models. Features a Streamlit UI for document upload and chat interface, plus CLI tools for headless processing.
 
-Setup
-1) Python ≥3.10, install deps: `pip install -e .` (or `uv pip install -e .`).
-2) Ensure Ollama is running with required models pulled.
-3) Optional `.env` (examples): `CHAT_MODEL=gemma3`, `EMBEDDING_MODEL=embeddinggemma:300m`, `OLLAMA_BASE_URL=http://localhost:11434`, `LOG_LEVEL=INFO`.
+## Features
+- **PDF Processing**: Advanced PDF ingestion with text chunking, table extraction, and image handling
+- **Vector Search**: FAISS-based vector indexing and similarity search
+- **Multi-Modal Support**: Handles text, tables, and images from PDF documents
+- **Chat Interface**: Retrieval-augmented question answering with configurable top-k results
+- **Health Monitoring**: Comprehensive health checks for models and vector store
+- **Persistent Storage**: JSON-based document store with vector persistence
 
-Configurations
-- Runtime settings live in `backend/core/config.py` (env-driven).
-- Vector/doc stores default under `storage/`; reset behavior controlled in `backend/core/dependency.py`.
-- Logging controlled by `LOG_LEVEL`, `LOG_TO_FILE`, `LOG_FILE`.
+## Setup
 
-API Documentation
-- Base URL: `/api`
-- Health: `GET /api/health`
-- Ingest (existing file): `POST /api/ingest?file_path=/full/path/to.pdf`
-- Ingest (upload): `POST /api/ingest` with form file `file=@/path/to.pdf`
-- Chat: `POST /api/chat` with JSON `{"question":"...","k":4}`
-Example curls:
-- `curl http://localhost:8000/api/health`
-- `curl -X POST "http://localhost:8000/api/ingest?file_path=/full/path/to.pdf"`
-- `curl -X POST -F "file=@/full/path/to.pdf" http://localhost:8000/api/ingest`
-- `curl -X POST http://localhost:8000/api/chat -H "Content-Type: application/json" -d "{\"question\":\"What is the model architecture?\",\"k\":4}"`
+### Prerequisites
+- Python ≥3.10
+- Ollama running locally with required models
 
-Usage
-- API: `uvicorn backend.app:app --reload`
-- Streamlit UI: `streamlit run streamlit_app.py`
-- CLI ingest: `python -m backend.utils.process_pdf path/to/file.pdf`
-
+### Installation
 ```bash
-Project structure (key files)
+# Install dependencies
+pip install uv
+# or with uv
+uv sync
+```
+
+### Ollama Models
+Ensure Ollama is running and pull required models:
+```bash
+ollama pull gemma3
+ollama pull embeddinggemma:300m
+```
+
+## Configuration
+
+### Environment Variables (.env)
+```env
+APP_ENV=local
+DATA_DIR=./storage
+EMBEDDING_MODEL=embeddinggemma:300m
+CHAT_MODEL=gemma3
+OLLAMA_BASE_URL=http://localhost:11434
+SEARCH_K=4
+LOG_LEVEL=INFO
+LOG_TO_FILE=false
+# LOG_FILE=./storage/logs/app.log  # Optional custom log file path
+```
+
+### Configuration Details
+- **Runtime Settings**: Managed in `backend/core/config.py` with environment variable overrides
+- **Storage**: Vector store, uploads, and logs default to `./storage/` directory
+- **Dependency Injection**: Service wiring handled in `backend/core/dependency.py`
+- **Logging**: Configurable via `LOG_LEVEL`, `LOG_TO_FILE`, and `LOG_FILE` variables
+
+## API Documentation
+
+### Base URL
+`/api`
+
+### Endpoints
+
+#### Health Check
+```http
+GET /api/health
+```
+Returns system status, model readiness, and vector store statistics.
+
+#### Document Ingestion
+```http
+# Upload file
+POST /api/ingest
+Content-Type: multipart/form-data
+
+# Existing file path
+POST /api/ingest?file_path=/path/to/document.pdf
+```
+
+#### Chat/Query
+```http
+POST /api/chat
+Content-Type: application/json
+
+{
+  "question": "Your question here",
+  "k": 4
+}
+```
+
+### Example Usage
+```bash
+# Health check
+curl http://localhost:8000/api/health
+
+# Ingest via file path
+curl -X POST "http://localhost:8000/api/ingest?file_path=/full/path/to.pdf"
+
+# Ingest via upload
+curl -X POST -F "file=@/path/to/document.pdf" http://localhost:8000/api/ingest
+
+# Chat query
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question":"What is the main topic?","k":4}'
+```
+
+## Usage
+
+### Start API Server
+```bash
+uvicorn backend.main:app --reload
+```
+
+### Launch Streamlit UI
+```bash
+streamlit run streamlit_app.py
+```
+
+### CLI Document Processing
+```bash
+python -m backend.utils.process_pdf /path/to/document.pdf
+```
+
+## Project Structure
+
+```
 ├── backend/
-│   ├── app.py                 # FastAPI entrypoint registering routers
+│   ├── app.py                 # FastAPI application entrypoint
 │   ├── api/
-│   │   ├── chat.py            # ingest/chat routes
-│   │   └── health.py          # health endpoint
+│   │   ├── chat.py            # Ingest and chat endpoints
+│   │   └── health.py          # Health check endpoint
 │   ├── core/
-│   │   ├── config.py          # env/settings
-│   │   └── dependency.py      # DI helpers, vector/doc store wiring
+│   │   ├── config.py          # Environment-driven configuration
+│   │   └── dependency.py      # Dependency injection setup
 │   ├── models/
-│   │   └── schemas.py         # Pydantic schemas
-│   ├── servies/               # (typo kept for compatibility)
-│   │   ├── interface/
+│   │   └── schemas.py         # Pydantic request/response models
+│   ├── servies/               # Business logic services
+│   │   ├── interface/         # Service interfaces
 │   │   │   ├── chat_interface.py
 │   │   │   ├── file_interface.py
 │   │   │   └── model_interface.py
-│   │   ├── chat_service.py    # retrieval + QA orchestration
-│   │   ├── file_service.py    # PDF parsing/chunking
-│   │   └── model_service.py   # Ollama chat/embedding wrappers
+│   │   ├── chat_service.py    # RAG orchestration service
+│   │   ├── file_service.py    # PDF processing service
+│   │   ├── model_service.py   # Ollama model wrappers
+│   │   └── types.py           # Type definitions
 │   ├── system_prompts/
-│   │   └── prompt_v1.py
+│   │   ├── notebook_prompts.py
+│   │   └── prompt_v1.py       # System prompts for chat
 │   └── utils/
-│       ├── json_docstore.py   # persisted parent docs
-│       ├── logging.py         # logging setup
-│       └── process_pdf.py     # CLI helper to ingest a PDF
-├── streamlit_app.py           # Streamlit UI for upload/chat
-├── notebook.py                # exploratory notebook logic
-├── main.py                    # placeholder
-├── pyproject.toml             # dependencies
+│       ├── json_docstore.py   # Document persistence
+│       ├── logging.py         # Logging configuration
+│       ├── parent_store.py    # Parent document storage
+│       └── process_pdf.py     # CLI PDF processing
+├── streamlit_app.py           # Streamlit web interface
+├── prompts.py                 # Additional prompt utilities
+├── pyproject.toml             # Project dependencies
+└── .env                       # Environment configuration
 ```
-Tech stack
-- FastAPI, Uvicorn
-- LangChain, FAISS
-- Ollama (chat + embedding models)
-- Unstructured (PDF parsing)
-- Streamlit (UI)
-- Pydantic, Python-dotenv, logging helpers
+
+## Tech Stack
+
+- **Backend**: FastAPI, Uvicorn
+- **ML/AI**: LangChain, Ollama, Transformers, PyTorch
+- **Vector Store**: FAISS
+- **Document Processing**: Unstructured, PDF2Image
+- **UI**: Streamlit
+- **Utilities**: Pydantic, Python-dotenv, TQDM
+
+## License
+
+See [LICENSE](LICENSE) file for details.
