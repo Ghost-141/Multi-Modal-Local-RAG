@@ -1,6 +1,6 @@
 # Multi-Modal Local RAG
 
-## Overview
+
 End-to-end RAG (Retrieval-Augmented Generation) system with FastAPI backend for PDF ingestion, chunking, FAISS vector indexing, and retrieval-augmented QA using Ollama models. Features a Streamlit UI for document upload and chat interface, plus CLI tools for headless processing.
 
 ## Features
